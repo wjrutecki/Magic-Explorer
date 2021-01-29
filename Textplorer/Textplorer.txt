@@ -1,0 +1,311 @@
+::Program
+;; Channels:
+;;          U0 --> List of levels, which are lists of rooms, which are lists of tiles
+;;          U1 --> Player Inventory. List of icons
+;;          U2 --> Minimap. List of rows of room and connector icons
+;; Globals:
+;;         a --> Current Room coordinates
+;;         b --> Current Player Coordinates
+;;         c --> Current Level
+;;         d --> Music toggle
+;;         e --> Boxes Burned in current level
+;;         f --> Total Boxes burned
+;;
+:Code 0
+;; Set up error message
+;; Initialize window and draw everything
+IF{@Zl>0 `@Zm,@Zc,@Zl,@Za'@[@(,"=",@EV," ")]@CA@Zu;1@Zi}
+`400,500'@Iw
+@1@OW
+@9
+"TextplorerIcons.mts"@PD@GF@Ya
+"levels.mls"@PD@GU
+{,}^a^b
+0^f
+""^d,
+0^c@2,
+""@Ww,
+" "@Tm@Wn,
+DO{@RK~=27 @3}
+1@CX
+@DU@CW;
+
+:Code 1
+{{"Courier New",400,6,},
+ {"Courier New",400,10,},
+ {"Segoe UI",700,16,},
+ {"Segoe UI",700,30,},
+ {"Courier New",700,19,},
+ {"Courier New",400,21,},
+ {"Courier New",400,11,}}@Iu
+ "Textplorer"@Ih;
+ 
+:Code LoadMap 2
+;; Load game icons and game map into memory
+;; Create a minimap based on game map
+;;    An empty list for every row of rooms plus extra rows to display doors
+;;    Fill lists with nil for each room and a nil in between each room for doors
+;; Make sure the first room is drawn into the map
+;; Start the soundtrack
+@T0
+@R0@[[{}@J2@P2@O2]@[""@J2""@J2][@L2@D2]@C2
+     [{}@J2@P2@O2]@[""@J2""@J2]@C2]
+@F2[@L2@D2]
+@O0
+{0@T0@O0,0@T0}^a
+{6,5}^b
+@13
+IF{d {,"soundplayer.mps"@PD,1}@OX}
+0^e
+""^g;
+
+:Code InputHandler 3
+;; Gets the last key pressed and passes it to HandleMove
+;; If it was M, I, or R open the map, inventory, or reset game
+;; Restart the soundtrack if it finished playing
+@LK
+@IF{@{=0,=65,=97}@! "L";
+    @{=1,=68,=100}@! "R";
+    @{=4,=87,=119}@! "U";
+    @{=5,=83,=115}@! "D";
+    @{=77,=109}@! @11;
+    @{=73,=105}@! @12;
+    @{=86,=118}@! @15;
+    @{=82,=114}@! @4@C0
+                  "SFX/laugh.wav"@PD@PZ;
+    =28 @10;""}@O0@5@C0
+IF{{1@QX@NV,d}@& {,"soundplayer.mps"@PD,1}@OX}
+@8;
+
+:Code 4 Reset
+;; Stop the music, clear the registers, then reload everything
+1@CX
+@DU
+"levels.mls"@PD@GU
+c@2
+@O0;
+
+:Code 5 ProcessMove
+;; Go to the location the player wants to move to
+;; If it's:
+;;          . --> Update player's location
+;;          K --> Update player's location and add K to inventory U1
+;;          S --> Equip player with sword and shield
+;;          E --> End of level.
+;;          D --> Door. Go to EnterDoor function
+;;          L --> Locked door. Either unlock it and replace it with a normal door or display message
+;;          F --> Fire. You die
+;;          W --> Wall. Can't move there, do nothing
+@F0[""@Wn]
+@IF{="L" @{,b@{|0@T0@O0,|1-1@T0}^A@R0};
+    ="R" @{,b@{|0@T0@O0,b|1+1@T0}^A@R0};
+    ="U" @{,b@{|0-1@T0@O0,|1@T0}^A@R0};
+    ="D" @{,b@{|0+1@T0@O0,|1@T0}^A@R0};{"",""}}
+@IF{|1="." "P"@W0@C0@F0
+           b@{|0@T0@O0,|1@T0}"."@W0@C0
+           A^b;
+    |1="K" "SFX/gold.wav"@PD@PZ
+           "Found a key!"@Tm@Wn
+           "P"@W0@C0@F0
+           b@{|0@T0@O0,|1@T0}"."@W0@C0
+           A^b
+           @aa|7@J1;
+    |1="A" "SFX/equip.wav"@PD@PZ
+           "Found a sword and shield!"@Tm@Wn
+           "P"@W0@C0@F0
+           b@{|0@T0@O0,|1@T0}"."@W0@C0
+           A^b
+           1^g
+           @aa|17@J1;
+    |1="E" |1,@6;
+    |1="D" |0@7
+           "SFX/chest.wav"@PD@PZ;
+    |1="L" IF{@aa|7@F1@Y1 @D1,"D"@W0"SFX/switch.wav"@PD@PZ;
+                     "Locked!"@Tm@Wn"SFX/click.wav"@PD@PZ}@C0;
+    |1="F" |1,@6;
+    |1="M" @{|0,A}@16;
+    |1="B" @{,A}@14;
+    |1 @C0};
+
+:Code EndGameMessage 6
+;; Take char as argument to know wether player won or died
+;; Play relevant sound effect
+;; Reset everything
+@IF{="F" "SFX/argh.wav"@PD@PZ
+         {"A fiery end!"@Tl,"Press ESC or Enter"@Tm}@Br;
+    ="M" "SFX/argh.wav"@PD@PZ
+         {"Monster wins!"@Tl,"Press ESC or Enter"@Tm}@Br;
+    ="E" "SFX/fanfare.wav"@PD@PZ
+         f+e^f
+         IF{@C0@C0@C0@C0@N0@R0~="" c+1^c
+                   {"Success!"@Tl,"Press ESC or Enter for next level"@Tm,
+                    "Boxes burned:"@Ts,e@Ts};
+                   {"Winner!"@Tl,"Press ESC or Enter to reset."@Tm,
+                    "Total boxes burned:"@Ts,f@Ts}}@Bg[0^f]}
+[`150,300,C'@FW]
+@Ac@Av@Wb
+DO{@RK@{~=27,~=13}@& }
+""@FW
+@4;
+
+:Code EnterDoor 7
+;; Changes the location of the character on the map
+;; Overwrites old position with a floor tile
+;; New position gets player
+;; Add new room to the minimap
+@IF{="L" @N0"."@W0
+         a@{|0,|1-1}^a
+         {5,9}^b;
+    ="R" @P0"."@W0
+         a@{|0,|1+1}^a
+         {5,1}^b;
+    ="U" @C0@N0@O0,b|1@T0"."@W0
+         a@{|0-1,|1}^a
+         {9,5}^b;
+    ="D" @C0@P0@O0,b|1@T0"."@W0
+         a@{|0+1,|1}^a
+         {1,5}^b}
+@C0@C0@C0,a|0@T0@O0,a|1@T0@O0@F0
+b@{|0@T0@O0,|1@T0}"P"@W0
+@C0@C0@13@O0@O0@C0;
+
+:Code 8 DrawScreen
+;; Replace characters with the correct tile
+;; "W"=Wall                 "L"=Locked Door
+;; "P"=Player               "K"=Key
+;; "D"=Door                 "M"=Monster
+;; "E"=Treasure             "B"=Move Block
+;; "F"=Fire                 "H"=Halt Block
+;; "A"=Sword & Shield
+@R0@[@[@IF{="W" @aa|0;
+           ="P" IF{g @aa|1;
+                   @aa|16};
+           ="D" @aa|3;
+           ="T" @aa|4;
+           ="F" @aa|5;
+           ="L" @aa|6;
+           ="K" @aa|7;
+           ="M" @aa|13;
+           ="B" @aa|14;
+           ="H" @aa|15;
+           ="A" @aa|17;
+           ="E" @aa|19;
+           ="S" @aa|18;
+           @aa|2}]]@Am@Bz@Wb;
+
+:Code 9
+;; The menu buttons
+{`10,10'@IO,
+ {{`30,90'@IO,"Map"@Ac},
+  {`30,90'@IO,"Inventory"@Ac},
+  {`30,90'@IO,"Music"@Ac},
+  {`30,90'@IO,"Restart"@Ac}}
+ @Ef@Dd@Tm@Bb@Av,`10,10'@IO}
+@Ah@Bs@Wm;
+
+:Code 10 ButtonClickHandler
+;; Goes to correct function for whatever button was clicked
+@IF{@HK@{|0="M",|1="1",|2="0"}@& @11;
+    @HK@{|0="M",|1="1",|2="1"}@& @12;
+    @HK@{|0="M",|1="1",|2="2"}@& @15;
+    @HK@{|0="M",|1="1",|2="3"}@& @4@C0;};
+
+:Code 11 MiniMap
+;; Draws a small map showing rooms and connections in a fixed window
+`300,300,B'@FW
+"SFX/inventory.wav"@PD@PZ
+@V2
+@Am@Wb
+DO{@RK@{~=13,~=27,~=77,~=109}@& }
+"SFX/inventory.wav"@PD@PZ
+""@FW;
+
+:Code 12 DisplayInventory
+;; Displays a key icon for every one collected so far
+"SFX/inventory.wav"@PD@PZ
+`50,200,B'@FW
+@V1@Ah@Al@Wb
+DO{@RK@{~=13,~=27,~=73,~=105}@& }
+"SFX/inventory.wav"@PD@PZ
+""@FW;
+
+:Code 13 RevealMap
+;; When called, adds the room players is in and its paths out of the room
+@F2,
+a|0*2@T2@O2@F2,
+a|1*2+1@T2
+@aa|8@W2@C2
+@F2
+@R0@{@IF{|0|5="D" a|0*2-1@T2@O2@F2,
+                  a|1*2+1@T2
+                  @aa|10@W2@C2},
+     @IF{|10|5="D" a|0*2+1@T2@O2@F2,
+                   a|1*2+1@T2
+                   @aa|10@W2@C2},
+     @IF{|5|0="D" a|0*2@T2@O2@F2,
+                  a|1*2@T2
+                  @aa|9@W2@C2},
+     @IF{|5|10="D" a|0*2@T2@O2@F2,
+                   a|1*2+2@T2
+                   @aa|9@W2@C2},
+     @IF{|0|5="L" a|0*2-1@T2@O2@F2,
+                  a|1*2+1@T2
+                  @aa|12@W2@C2},
+     @IF{|10|5="L" a|0*2+1@T2@O2@F2,
+                   a|1*2+1@T2
+                   @aa|12@W2@C2},
+     @IF{|5|0="L" a|0*2@T2@O2@F2,
+                  a|1*2@T2
+                  @aa|11@W2@C2},
+     @IF{|5|10="L" a|0*2@T2@O2@F2,
+                   a|1*2+2@T2
+                   @aa|11@W2@C2}};
+
+:Code 14 PushBlock
+;; {{Direction,Block},{new,new}}
+@IF{|0|0="L" @P0;
+    |0|0="R" @N0;
+    |0|0="U" @C0@P0@O0[|1|1@T0];
+    |0|0="D" @C0@N0@O0[|1|1@T0]}
+@IF{@R0="." ["B"@W0@C0]
+            @{|1|0@T0@O0,|1|1@T0}
+            "."@W0
+            "SFX/block.wav"@PD@PZ;
+    @R0="F" @C0@{|1|0@T0@O0,|1|1@T0}
+            "."@W0
+            "SFX/fire.wav"@PD@PZ
+            e+1^e}
+@C0;
+
+:Code 15 ToggleMusic
+;;When the Music button is clicked, toggles the play music flag
+IF{1@QX 1@CX,""^d;
+        {,"soundplayer.mps"@PD,1}@OX,1^d};
+
+:Code 16 MonsterClash
+;; {{Direction},{new,new}}
+@{|0,|1^C}
+@IF{g @IF{|0="L" |1@{|0,|1-1}^A,
+                 b@{|0,|1+1}^B;
+          |0="R" |1@{|0,|1+1}^A,
+                 b@{|0,|1-1}^B;
+          |0="U" |1@{|0-1,|1}^A,
+                 b@{|0+1,|1}^B;
+          |0="D" |1@{|0+1,|1}^A,
+                 b@{|0-1,|1}^B}
+      @C0,A|0@T0@O0,A|1@T0
+      @R0@IF{="." "M"@W0
+                   @C0,C|0@T0@O0,C|1@T0"."@W0
+                   "SFX/attack.wav"@PD@PZ;
+             ="F" "F"
+                  @C0,C|0@T0@O0,C|1@T0"."@W0
+                   "SFX/roar.wav"@PD@PZ;
+                   "SFX/attack.wav"@PD@PZ}
+      @C0,B|0@T0@O0,B|1@T0
+      @R0@IF{="." "P"@W0
+                  @C0,b|0@T0@O0,b|1@T0"."@W0,
+                  B^b;
+             ="F" "F"@6@O0;}
+      @C0;
+    "M"@6};
+        
